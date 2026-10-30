@@ -11,8 +11,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "cli": "npm run build --silent && node dist/main.js",
-    "test": "node --test",
-    "check": "npm run typecheck && npm test && npm run build"
+    "test": "npm run build --silent && node --test",
+    "check": "npm run typecheck && npm test"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

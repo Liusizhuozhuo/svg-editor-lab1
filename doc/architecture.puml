@@ -28,6 +28,7 @@ infra ..> domain
 ports ..> domain
 note bottom of domain
 No CLI, filesystem or concrete infrastructure imports.
-Only main.ts and cli/CliApplication.ts exist in stage 1.
+Stage 2: main.ts, CLI entry and domain shapes implemented.
+Document, commands and IO modules are still planned.
 end note
 @enduml

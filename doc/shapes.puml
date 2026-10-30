@@ -1,0 +1,41 @@
+@startuml
+ title Stage 2 — Shape model
+ abstract class Shape {
+   - id: string
+   - parent: Shape
+   + getId(): string
+   + getType(): string
+   + getAttributes(): readonly attributes
+   + setAttribute(name, value): void
+   + getChildren(): readonly Shape[]
+   + move(dx, dy): void
+   + scale(factor): void
+   # planMove(dx, dy): update
+   # planScale(factor): update
+ }
+ class Rect
+ class Circle
+ class Ellipse
+ class Line
+ class TextShape
+ class Group {
+   - children: readonly Shape[]
+   + constructor(id, children)
+ }
+ class NumericRules
+ class DomainError
+ Shape <|-- Rect
+ Shape <|-- Circle
+ Shape <|-- Ellipse
+ Shape <|-- Line
+ Shape <|-- TextShape
+ Shape <|-- Group
+ Group "0..1" *-- "0..*" Shape : ordered children
+ Shape ..> NumericRules
+ NumericRules ..> DomainError
+ note bottom of Group
+   Construct-time composition only in stage 2.
+   Plan all geometry updates before applying any.
+   Document-level mutations and ID index: stage 3.
+ end note
+@enduml
