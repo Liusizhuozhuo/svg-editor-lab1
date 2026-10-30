@@ -2,7 +2,7 @@
 
 ## 文档状态
 
-第 2 阶段修订。工程骨架与图形领域模型已实现；命令、文档管理、CLI 解析和 SVG 读写仍是后续计划。
+第 3 阶段修订。工程骨架、图形模型、文档树和全局 ID 管理已实现；Command、历史、CLI 解析和 SVG 读写仍是后续计划。各阶段记录保留当时状态，以本节和最新阶段记录为当前实现范围。
 需求依据：`../phase_cli_1.md`。当前范围为 CLI、六种内置图形和任务书列出的全部命令；不开发 Web 界面、box 或动态插件加载。
 
 ## 架构方案
@@ -136,7 +136,7 @@ presentation ..> domain
 
 ### 模块划分
 
-第 2 阶段新增 domain/shapes 下的 Shape 与六个具体类，以及 domain 下的 NumericRules、DomainError；一类一文件。未实现模块仍由 .gitkeep 保留。目录与规划一致，领域行为不依赖 CLI。
+第 3 阶段新增 domain/SvgDocument.ts 与 domain/internal/TreeStructure.ts；内部结构状态由 TreeStructure 封装，SvgDocument 统一维护树和 ID 索引。保持一类一文件；未实现模块仍由 .gitkeep 保留。新增 internal 子目录属于 domain 内部细化，已记入阶段修订。
 
 ### 依赖方向
 
@@ -147,7 +147,7 @@ presentation ..> domain
 
 当前使用 TypeScript strict、noUncheckedIndexedAccess、exactOptionalPropertyTypes、noImplicitOverride 与 noEmitOnError。
 通过 npm run check 验证类型检查与编译，通过 npm run cli 验证启动入口。
-Node 内置测试入口在第 2 阶段改为先编译再测试，24 项领域测试通过；尚未覆盖未来 CLI、历史和 SVG 文件读写功能。
+Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 44 项领域测试通过；尚未覆盖未来 CLI、历史和 SVG 文件读写功能。
 依赖版本由 package-lock.json 锁定，使用 npm ci 复现安装。
 
 后续验证随功能同步：
@@ -224,3 +224,61 @@ node.setAttribute("fill", "blue"); // 不覆盖矩形自身的 red
 `npm run check` 通过：严格类型检查、编译，以及 24 项测试。覆盖五种叶子的移动与缩放、六种类型的统一接口、嵌套容器、子树隔离、属性白名单、样式默认与组属性、原始文本、非法输入、浮点数、溢出原子性、封装和父级一致性。
 
 全局 ID 唯一性、动态树操作、Command、undo/redo、REPL 与 SVG 往返尚未实现，也不在本阶段测试通过声明内。所有提交仍由用户自行执行。
+
+## 第 3 阶段：文档、树结构与 ID 管理
+
+### 实现文件与公共 API
+
+新增 `src/domain/SvgDocument.ts`：画布根不是有 ID 的 Group，而是文档对象本身。根级图形的 getParent() 返回 undefined，文档归属单独跟踪，因此根级元素也不能被两个文档重复占有。
+
+| API | 行为 |
+|---|---|
+| constructor(width = 800, height = 600) | 创建空画布 |
+| getWidth/getHeight、resize | 查询/原子修改画布尺寸 |
+| getChildren、getElementCount | 查询根级顺序和所有图形数量；计数含 g、不含 SVG 根 |
+| findById、getShape | 前者查不到返回 undefined，后者抛 no such shape |
+| insert(shape, parentId?, position?) | 验证整棵离线子树，原子加入父容器与 ID 索引 |
+| remove(id) | 移除整棵子树并清理其全部索引，返回保留内部结构的离线子树 |
+| reparent(id, parentId?, position?) | 在文档内换父级或调整同级位置，禁止形成环 |
+| getLocation(id) | 返回冻结的父级 ID/位置描述，为后续恢复操作提供信息 |
+| bringToFront/sendToBack | 仅调整同级顺序，front 放末尾、back 放开头 |
+
+省略 parentId 表示文档根；省略 position 表示追加。同级 reparent 的 position 是移除原节点后在目标列表中的插入位置，可用 0 到移除后列表长度（含两端），避免前移/后移下标歧义。
+
+```typescript
+const document = new SvgDocument(800, 600);
+document.insert(new Group("scene"));
+document.insert(new Rect("r1", 10, 20, 100, 50), "scene");
+document.reparent("r1"); // 提升到画布根，几何坐标不变
+const location = document.getLocation("r1");
+const removed = document.remove("r1");
+document.insert(removed, location.parentId, location.index);
+```
+
+此示例是领域 API 演示，不是已实现的 CLI 或 undo 功能。
+
+### 结构封装调整与依赖规则
+
+- 新增 `domain/internal/TreeStructure.ts`，用私有 WeakMap 保存父级、冻结的子列表以及文档归属标记。Shape/Group 仅暴露查询；结构写入不作为它们的公共方法。
+- 对比阶段 2：父级不再存于 Shape 字段，子列表不再存于 Group 字段，而由上述内部模块保存。Group 构造仍允许离线组合，但拒绝占有已在文档中的根级元素。
+- TreeStructure 的 import 仅允许来自 Shape、Group 和 SvgDocument。commands/application/cli 等模块禁止直接导入它，必须通过 SvgDocument 修改结构。这是架构约束，internal 目录与 @internal 注释并非 JavaScript 访问权限沙箱；后续依赖自查必须检查这一点。
+- TreeStructure 只 type-import Shape，避免运行时导入循环；SvgDocument 使用 isContainer() 多态能力检查，不按 getType() 或标签名字分发。
+- ID 索引只由 SvgDocument 维护，插入之前检查全树 ID 冲突、重复对象和父子一致性；删除之后释放整棵子树归属。跨文档转移必须先 remove，再 insert。
+
+### 实现决策与阶段边界
+
+- 画布宽高采用有限正数，可为浮点数；不接受零画布。这是本阶段实现约定，与图形尺寸允许零的规则分别处理。
+- reparent 保持对象身份、几何属性和显式样式，不自动补偿 SVG 样式继承变化；移到另一个带 fill 的组中可能改变最终继承颜色。
+- 所有用户可预见校验在提交结构修改前完成。失败不能导致原父级丢节点、新父级多节点、ID 索引部分更新或离线对象被错误占有。
+- 不能给同一文档插入重复 ID，大小写敏感；不同文档允许各自使用相同 ID，但不能共享同一个图形对象。
+- 本阶段提供可用于分组命令的基础操作，没有实现 group/ungroup 的多对象事务或跨父级分组位置规则；这些仍在第 6 阶段决定和实现。
+- 此处 resize 是领域 API，不包含 canvas 命令的历史屏障；Command 和 undo/redo 仍在第 4 阶段开始实现。
+
+### 过程记录与验证
+
+- 开始时工作区干净，继续遵守用户手动提交约定。
+- 发现仅用 parent 判断归属不足：文档根级元素没有图形父级，仍需独立归属标记，以防同一对象重复进入两个文档。
+- 将阶段 2 构造式容器扩展为文档协调的动态结构，同时保留冻结查询结果与原有 Composite 行为；既有 24 项测试全部继续通过。
+- 新增 `tests/document.test.mjs` 20 项测试：全局/子树内部 ID 冲突、大小写、插入位置、整树删除与恢复、跨文档复用保护与合法转移、换父级、自身/后代环、同级排序、画布原子修改、冻结查询，以及连续操作中的树/索引一致性。
+- 测试中的独立遍历检查同时核对父级、对象身份、ID 查询和元素数量，避免只检查输出顺序而漏掉索引错误。
+- `npm run check` 通过严格类型检查、编译和全部 44 项测试。CLI 仍只显示阶段说明；未引入新依赖，没有改动提交或远程仓库。

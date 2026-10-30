@@ -1,8 +1,7 @@
 @startuml
- title Stage 2 — Shape model
+ title Stage 3 — Shapes and document structure
  abstract class Shape {
    - id: string
-   - parent: Shape
    + getId(): string
    + getType(): string
    + getAttributes(): readonly attributes
@@ -19,9 +18,19 @@
  class Line
  class TextShape
  class Group {
-   - children: readonly Shape[]
    + constructor(id, children)
  }
+ class SvgDocument {
+   + insert(shape, parentId, position)
+   + remove(id): Shape
+   + reparent(id, parentId, position)
+   + findById(id): Shape
+ }
+ class TreeStructure <<internal>>
+ SvgDocument ..> TreeStructure
+ Shape ..> TreeStructure
+ Group ..> TreeStructure
+ SvgDocument "0..1" o-- "0..*" Shape : roots and ID index
  class NumericRules
  class DomainError
  Shape <|-- Rect
@@ -34,8 +43,8 @@
  Shape ..> NumericRules
  NumericRules ..> DomainError
  note bottom of Group
-   Construct-time composition only in stage 2.
+   Structural changes go through SvgDocument.
    Plan all geometry updates before applying any.
-   Document-level mutations and ID index: stage 3.
+   TreeStructure holds private parent/children/owner maps.
  end note
 @enduml

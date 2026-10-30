@@ -1,5 +1,6 @@
 import { DomainError } from "../DomainError.js";
 import { NumericRules } from "../NumericRules.js";
+import { TreeStructure } from "../internal/TreeStructure.js";
 
 type AttributeValue = string | number;
 type AttributeBinding = {
@@ -10,7 +11,6 @@ type AttributeBinding = {
 /** Encapsulated shape behavior shared by leaves and groups. */
 export abstract class Shape {
   private readonly id: string;
-  private parent: Shape | undefined;
   private fill: string | undefined;
   private stroke: string | undefined;
   private strokeWidth: number | undefined;
@@ -29,7 +29,8 @@ export abstract class Shape {
 
   public getId(): string { return this.id; }
   public abstract getType(): string;
-  public getParent(): Shape | undefined { return this.parent; }
+  public getParent(): Shape | undefined { return TreeStructure.getParent(this); }
+  public isContainer(): boolean { return false; }
   public getChildren(): readonly Shape[] { return Object.freeze([]); }
 
   /** Detached, frozen explicit attributes; omitted styles stay absent.
@@ -72,13 +73,6 @@ export abstract class Shape {
 
   protected static planChildScale(child: Shape, factor: number): () => void {
     return child.planScale(factor);
-  }
-
-  protected static attachChild(child: Shape, parent: Shape): void {
-    if (child.parent !== undefined) {
-      throw new DomainError(`shape already has a parent: ${child.getId()}`);
-    }
-    child.parent = parent;
   }
 
   protected registerNumericAttribute(

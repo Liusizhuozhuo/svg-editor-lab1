@@ -28,7 +28,8 @@ infra ..> domain
 ports ..> domain
 note bottom of domain
 No CLI, filesystem or concrete infrastructure imports.
-Stage 2: main.ts, CLI entry and domain shapes implemented.
-Document, commands and IO modules are still planned.
+Stage 3: CLI entry, shapes and document tree implemented.
+Commands and IO modules are still planned.
+domain/internal is used only by Shape, Group and SvgDocument.
 end note
 @enduml
