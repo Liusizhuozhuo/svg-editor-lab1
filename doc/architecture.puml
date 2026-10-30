@@ -1,0 +1,33 @@
+@startuml
+title SVG CLI — planned module dependencies (stage 1)
+skinparam componentStyle rectangle
+package "src/main.ts\nComposition root" as bootstrap
+package "cli" as cli
+package "application" as app
+package "commands\nCommand interfaces + implementations" as commands
+package "domain" as domain
+package "ports" as ports
+package "infrastructure" as infra
+package "presentation" as presentation
+
+bootstrap ..> cli
+bootstrap ..> app
+bootstrap ..> infra
+cli ..> app
+cli ..> commands
+cli ..> presentation
+cli ..> domain : create argument definitions
+app ..> commands
+app ..> domain
+app ..> ports
+commands ..> domain
+commands ..> ports
+presentation ..> domain
+infra ..> ports
+infra ..> domain
+ports ..> domain
+note bottom of domain
+No CLI, filesystem or concrete infrastructure imports.
+Only main.ts and cli/CliApplication.ts exist in stage 1.
+end note
+@enduml
