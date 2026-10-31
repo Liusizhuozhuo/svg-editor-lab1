@@ -1,3 +1,4 @@
+import type { ShapeVisitor } from "../ShapeVisitor.js";
 import { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { NumericRules } from "../NumericRules.js";
 import { Shape } from "./Shape.js";
@@ -17,6 +18,8 @@ export class Circle extends Shape {
     this.registerNumericAttribute("r", () => this.r, value => { this.r = value; }, true);
     if (fill !== undefined) this.setAttribute("fill", fill);
   }
+
+  public override accept<T>(visitor: ShapeVisitor<T>): T { return visitor.visitCircle(this); }
 
   public override getType(): string { return "circle"; }
 

@@ -1,3 +1,4 @@
+import type { ShapeVisitor } from "../ShapeVisitor.js";
 import { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { TreeStructure } from "../internal/TreeStructure.js";
 import { Shape } from "./Shape.js";
@@ -8,6 +9,8 @@ export class Group extends Shape {
     super(id);
     TreeStructure.initializeGroup(this, children);
   }
+
+  public override accept<T>(visitor: ShapeVisitor<T>): T { return visitor.visitGroup(this); }
 
   public override getType(): string { return "g"; }
   public override isContainer(): boolean { return true; }

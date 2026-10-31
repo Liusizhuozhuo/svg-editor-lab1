@@ -1,4 +1,4 @@
 import { CliApplication } from "./cli/CliApplication.js";
 
-// Composition root: create and connect concrete implementations here.
-new CliApplication().run();
+// Composition root: connect the terminal adapter to the application.
+await new CliApplication().run();

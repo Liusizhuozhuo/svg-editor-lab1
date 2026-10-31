@@ -2,7 +2,7 @@
 
 ## 文档状态
 
-第 4 阶段修订。工程骨架、图形模型、文档树、Command 执行、创建/移动及历史管理已实现；CLI 解析、其他编辑命令和 SVG 文件读写仍是后续计划。各阶段记录保留当时状态，以本节和最新阶段记录为当前实现范围。
+第 5 阶段修订。CLI 的 init/create/move/undo/redo/tree/show/help、六种图形工厂与查询格式化已接入；其余编辑命令和 SVG 文件读写仍是后续计划。各阶段记录保留当时状态，以本节和最新阶段记录为当前实现范围。
 需求依据：`../phase_cli_1.md`。当前范围为 CLI、六种内置图形和任务书列出的全部命令；不开发 Web 界面、box 或动态插件加载。
 
 ## 架构方案
@@ -60,7 +60,7 @@ presentation ..> domain
 - **Memento 与局部恢复**：第 4 阶段采用 GeometrySnapshot 精确恢复移动前后的几何值；CreateCommand 保存创建对象及插入位置，撤销/重做通过文档维护索引。保留对象身份，不替换整份文档。未来 set/delete/group 需分别保存属性是否存在、父级和顺序，不能直接套用几何快照。
 
 按名字分发仅保留两处：CommandRouter（命令名）和 ShapeFactory（图形类型名）。依任务书标为**待重构点**：后续改为可注入注册、减少修改中央清单的需求；注册表仍是名字分发，不能以此规避约束。
-属性白名单由各图形封装，不在命令中根据图形类型分支。tree/show 和 SVG 输出使用多态描述或访问者，具体选择随对应阶段记录，当前不预建复杂框架。
+属性白名单由各图形封装，不在命令中根据图形类型分支。第 5 阶段 tree/show 使用 ShapeVisitor 与 Shape.accept() 双分派；SVG 输出尚未实现。访问者通过具体方法处理类型，不再新增类型名字分派。
 
 ### 依赖方向规则
 
@@ -136,18 +136,18 @@ presentation ..> domain
 
 ### 模块划分
 
-第 4 阶段新增 commands 的命令协议与实现、application 的会话/执行器/历史管理、ports/CommandContext.ts 和 domain/GeometrySnapshot.ts。各模块与原规划一致；未实现的 infrastructure/presentation 仍为占位目录。保持一类一文件，无新增外部依赖。
+第 5 阶段新增 cli 下的分词/参数/路由/各命令解析器、domain 下的 ShapeFactory/ShapeDefinition/ShapeArguments 与六个类型定义类、ShapeVisitor，以及 presentation 中的两个 Formatter。infrastructure 仍为占位目录。新增 examples/phase5.txt 和 CLI 测试。保持一类一文件，无新增外部依赖。
 
 ### 依赖方向
 
-当前 main.ts → cli；application → commands/domain/ports；commands → domain/ports；ports → domain；domain 仅模块内部依赖。没有 commands → application 或领域 IO 依赖。历史管理器只依赖 UndoableCommand 协议，无具体命令名分发；命令调用多态图形行为，无 switch(tag)。
+当前 main.ts → cli；cli → application/commands/domain/presentation；application → commands/domain/ports；commands → domain/ports；ports/presentation → domain；domain 仅模块内部依赖。终端 IO 仅在 CLI。命令名与类型名查找分别集中在 CommandRouter 与 ShapeFactory，均标记待重构；查询输出通过访问者，不含 switch(tag)。
 后续新增模块时检查 import，重点检查 domain 是否依赖 IO、commands 与 application 是否形成环，以及是否增加类型名分派点。
 
 ## 质量保证手段
 
 当前使用 TypeScript strict、noUncheckedIndexedAccess、exactOptionalPropertyTypes、noImplicitOverride 与 noEmitOnError。
 通过 npm run check 验证类型检查与编译，通过 npm run cli 验证启动入口。
-Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 66 项领域与命令测试通过；尚未覆盖未来 CLI 和 SVG 文件读写功能。
+Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 89 项测试通过，包含真实 CLI 进程和交互适配器；尚未覆盖未来 SVG 文件读写与未接入的编辑命令。
 依赖版本由 package-lock.json 锁定，使用 npm ci 复现安装。
 
 后续验证随功能同步：
@@ -345,3 +345,56 @@ CreateCommand 接受已构造的 Shape；类型名解析、图形工厂和 CLI �
 - 新增 tests/commands.test.mjs 的 22 项测试；涵盖六种类型统一创建、指定父级和位置、整棵子树一个历史单元、嵌套组移动、浮点恢复、redo 分支、历史屏障、初始化失败、重复提交、文档切换及失败恢复路径。
 - npm run check 通过严格类型检查、编译及全部 66 项测试；既有 44 项全部继续通过。CLI 仍只显示阶段说明，测试直接调用应用 API。
 - 文档和图示随实现更新；没有新增依赖，没有执行 git 暂存、提交、推送或标签操作。
+
+## 第 5 阶段：CLI 解析、REPL 与查询
+
+### 已接入功能
+
+八个命令：init、create、move、undo、redo、tree、show、help。create 支持六种内置类型和尾部 in 子句；所有编辑通过已有 CreateCommand/MoveCommand 与 CommandExecutor 执行。没有提前实现第 6 阶段其他编辑命令或第 7 阶段文件读写。
+
+执行链：输入行 → Tokenizer → TokenCursor → CommandRouter → 对应 Parser → ParsedCommand → 应用执行器/只读 Formatter。
+
+| 文件或目录 | 责任 |
+|---|---|
+| cli/Tokenizer.ts、Token.ts | 保留参数文本、引号标记和起始列；识别整行注释、空行、双引号和转义 |
+| cli/TokenCursor.ts | 按顺序读取参数，检查数值、缺参和多参 |
+| cli/CommandRouter.ts | 唯一命令名查找；从已注册 Parser 和图形定义生成帮助 |
+| cli/CommandParser.ts、parsers/ | 每条命令独立完成语法校验，生成执行请求 |
+| cli/ParsedCommand.ts | 封装已解析请求；编辑请求持有真正的 Command，查询不进入历史 |
+| cli/CliApplication.ts | readline REPL、输出结果、统一 error 前缀与出错后继续处理 |
+| domain/ShapeFactory.ts | 唯一图形类型名查找，注册六种内置定义 |
+| domain/ShapeDefinition.ts、definitions/ | 每种类型负责自己的构造参数与帮助语法 |
+| domain/ShapeArguments.ts | 接收独立的创建值，不理解 CLI 引号、注释或 in 子句 |
+| domain/ShapeVisitor.ts、Shape.accept() | 以多态方法区分具体图形，避免输出层重复类型名分派 |
+| presentation/ShapeFormatter.ts、TreeFormatter.ts | 纯文本格式化；展示几何信息、样式、父级和树分支，不修改模型或访问终端 |
+
+入口 src/main.ts 使用顶层 await 等待 REPL 结束。examples/phase5.txt 提供可回放的两节点流程图示例；当前不能保存 SVG 文件。
+
+### 解析语义与边界
+
+1. 空行和去掉前导空白后以 # 开头的行直接跳过，不要求已有文档。其他位置的 # 是普通参数内容，不支持行尾注释。
+2. 双引号必须覆盖整个参数，保留内部空格和空字符串；支持引号内的 `\"` 和 `\\`。未知反斜杠序列原样保留，避免误吞 Windows 路径。未闭合或拼接式引号给出带列号错误。
+3. 数值支持有限十进制浮点和科学计数，拒绝 NaN、Infinity、十六进制、带单位和空字符串。几何边界仍由领域模型校验。
+4. create 先取 type/id，再识别末尾未加引号的 in 与父容器 ID；文本 `"in"` 不作为关键字。尾部孤立的未引用 in 报缺 containerId；需要文本 in 时使用双引号。
+5. init 无参数默认 800×600；仅给 width 时 height 默认 600；这是对两个可选参数的本阶段解释。参数错误不会先清空旧文档。
+6. 参数解析先于执行，因此非法语法可在未初始化时先报告语法错误；语法正确的文档相关命令统一报告 no document。help、注释与空行例外允许在未初始化时使用。
+7. tree 默认展示整个文档，tree id 展示该子树；show 包含父级及显式属性；根级父级显示 svg。颜色未设置时不人为补默认属性，文本查询用引号转义。
+8. 命令和图形类型名大小写敏感。当前 help 只列已接入命令，并明确其余编辑与文件命令尚不可用；最终阶段随注册扩展为完整帮助。
+9. 终端模式显示欢迎语和 svg>，脚本模式省略两者，EOF 结束；错误输出到 stderr，一行一个 error:，不会终止后续命令。脚本内单条错误不设置失败退出码，语义与交互式继续执行一致；不保证整段脚本原子执行。
+
+### 模式与变化点修订
+
+- ShapeFactory 和 CommandRouter 两处名字分派现已真实落地，源码 TODO 与本节均保留后续注入式注册的待重构记录；尚未实现插件发现/加载。
+- 选择 Visitor 是为了在输出层集中格式化，同时避免在 tree/show 中写 switch(tag)。代价是新增内置图形时需扩展访问者协议；当前六种类型固定，接受此代价。未来插件化需要重新评估开放式展示协议。
+- ShapeDefinition 目前封装类型参数读取和构造，尚不是通用可序列化 schema；只预留工厂入口，不夸大为完成插件系统。
+- ParsedCommand 是 CLI 适配请求，不能替代 Command 模式；编辑仍由 CreateCommand/MoveCommand 承担状态与撤销，history 从不依赖 CLI。
+- 领域类只增加 type-only 的 Visitor 依赖和 accept 方法，不依赖 presentation；Formatter 实现访问者，保持依赖向内。
+
+### 过程记录与验证
+
+- 开始时工作区干净，沿用用户自行提交的约定。
+- 首轮编译发现代码生成时反斜杠转义被削减，并发现树分支 Unicode 经旧 PowerShell 管道被替换；改为明确的 UTF-8 写入，随后用转义测试和精确树文本断言验证修复。
+- 新增 tests/cli.test.mjs 的 23 项测试，覆盖分词/转义/注释、六种工厂构造、in 子句、参数校验、查询格式、历史不受查询和失败影响、真实进程的中文/CRLF/末尾无换行/错误继续执行、交互提示符和 EOF。
+- npm run check 通过严格类型检查、编译与全部 89 项测试；已有 66 项继续通过。
+- 终端 IO 仅在 CliApplication，命令与领域层无终端导入；只有 CommandRouter 和 ShapeFactory 按名称查找实现。
+- 不新增外部依赖；未执行暂存、提交、推送或标签操作。PlantUML 继续提供源码，未宣称做过图像渲染验收。

@@ -1,3 +1,4 @@
+import type { ShapeVisitor } from "../ShapeVisitor.js";
 import { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { NumericRules } from "../NumericRules.js";
 import { Shape } from "./Shape.js";
@@ -20,6 +21,8 @@ export class Line extends Shape {
     this.registerNumericAttribute("y2", () => this.y2, value => { this.y2 = value; });
     if (stroke !== undefined) this.setAttribute("stroke", stroke);
   }
+
+  public override accept<T>(visitor: ShapeVisitor<T>): T { return visitor.visitLine(this); }
 
   public override getType(): string { return "line"; }
 

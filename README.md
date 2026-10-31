@@ -5,8 +5,8 @@
 
 ## 当前进度
 
-已完成第 4 阶段：Command 执行、创建/移动命令与撤销重做。入口只输出阶段说明后退出，尚不接受编辑命令。
-CommandExecutor 可通过 API 执行 CreateCommand、MoveCommand，并管理 undo/redo。文档树与图形 API 已实现；REPL、其他编辑命令及 SVG 文件读写仍将在后续阶段接入。
+已完成第 5 阶段：交互式 CLI、命令解析与图形查询。可以在终端输入命令，也可从标准输入回放脚本。
+当前支持 init/create/move/undo/redo/tree/show/help，以及六种内置图形和 create 的 in 子句。其他编辑命令将在第 6 阶段接入，SVG 读写与 canvas 命令将在第 7 阶段接入。
 
 ## 环境与命令
 
@@ -18,14 +18,44 @@ npm run cli
 npm run check
 ```
 
-- `npm run cli`：编译并运行入口。
+- `npm run cli`：编译后启动交互式 CLI，提示符为 `svg>`。
 - `npm run typecheck`：严格类型检查，不输出文件。
 - `npm run build`：编译到 `dist/`。
-- `npm test`：先编译，再运行 Node.js 内置测试发现器；当前 66 项领域与命令测试。
+- `npm test`：先编译，再运行 Node.js 内置测试发现器；当前 89 项领域、命令、解析与进程集成测试。
 - `npm run check`：严格类型检查，然后执行编译与测试。
 
-测试位于 `tests/shapes.test.mjs`、`tests/document.test.mjs` 和 `tests/commands.test.mjs`，直接验证领域模型与应用 API，不依赖尚未实现的 CLI。
+测试位于 `tests/*.test.mjs`，包括领域模型、命令历史、参数解析、格式化与真实进程脚本回放。
 不提交 `node_modules/` 或 `dist/`；提交 `package-lock.json` 保证依赖可复现。
+
+## 使用示例
+
+运行 `npm run cli` 后逐行输入（不要复制提示符）：
+
+```text
+init 800 600
+create g node
+create rect r1 10 20 100 50 #4a90d9 in node
+create text t1 20 40 "Hello world" in node
+move node 30 0
+tree
+undo
+show r1
+redo
+help
+```
+
+使用 Ctrl+C 结束交互；输入流结束也会退出。双引号包裹带空格参数，支持空文本 `""`；引号内 `\"` 表示双引号、`\\` 表示反斜杠，其他反斜杠序列保留原样。只有行首（忽略前导空白）的 `#` 是注释，颜色值 `#ffffff` 不受影响；不支持行尾注释。
+
+回放已提供的流程图示例（Windows PowerShell 中运行）：
+
+```powershell
+npm run build
+cmd /c "node dist/main.js < examples\phase5.txt"
+```
+
+这里用输入重定向传递原始 UTF-8 文件，避免旧版 PowerShell 管道把中文转换为其他编码。脚本模式不输出欢迎语和提示符；成功结果到 stdout，错误到 stderr，每个错误一行且继续执行后续命令。回放不是事务，之前已成功执行的命令不会因后续报错回滚。
+
+当前 `help` 列出已接入的八个命令和六种 create 参数格式。`save/read/canvas/delete/scale/set/group/ungroup/addto/front/back` 尚未接入，不应将当前结果视为完整实验验收。
 
 ## 协作约定
 

@@ -1,3 +1,4 @@
+import type { ShapeVisitor } from "../ShapeVisitor.js";
 import { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { NumericRules } from "../NumericRules.js";
 import { Shape } from "./Shape.js";
@@ -17,6 +18,8 @@ export class TextShape extends Shape {
     this.registerStringAttribute("text", () => this.content, value => { this.content = value; });
     this.setAttribute("text", content);
   }
+
+  public override accept<T>(visitor: ShapeVisitor<T>): T { return visitor.visitTextShape(this); }
 
   public override getType(): string { return "text"; }
 

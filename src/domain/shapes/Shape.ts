@@ -1,3 +1,4 @@
+import type { ShapeVisitor } from "../ShapeVisitor.js";
 import type { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { DomainError } from "../DomainError.js";
 import { NumericRules } from "../NumericRules.js";
@@ -30,6 +31,7 @@ export abstract class Shape {
 
   public getId(): string { return this.id; }
   public abstract getType(): string;
+  public abstract accept<T>(visitor: ShapeVisitor<T>): T;
   public abstract captureGeometry(): GeometrySnapshot;
   public getParent(): Shape | undefined { return TreeStructure.getParent(this); }
   public isContainer(): boolean { return false; }

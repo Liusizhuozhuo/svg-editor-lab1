@@ -1,3 +1,4 @@
+import type { ShapeVisitor } from "../ShapeVisitor.js";
 import { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { NumericRules } from "../NumericRules.js";
 import { Shape } from "./Shape.js";
@@ -20,6 +21,8 @@ export class Ellipse extends Shape {
     this.registerNumericAttribute("ry", () => this.ry, value => { this.ry = value; }, true);
     if (fill !== undefined) this.setAttribute("fill", fill);
   }
+
+  public override accept<T>(visitor: ShapeVisitor<T>): T { return visitor.visitEllipse(this); }
 
   public override getType(): string { return "ellipse"; }
 
