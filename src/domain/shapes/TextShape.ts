@@ -1,3 +1,4 @@
+import { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { NumericRules } from "../NumericRules.js";
 import { Shape } from "./Shape.js";
 
@@ -18,6 +19,15 @@ export class TextShape extends Shape {
   }
 
   public override getType(): string { return "text"; }
+
+  public override captureGeometry(): GeometrySnapshot {
+    const x = this.x;
+    const y = this.y;
+    return new GeometrySnapshot(this, () => {
+      this.x = x;
+      this.y = y;
+    });
+  }
 
   protected override planMove(dx: number, dy: number): () => void {
     const x = NumericRules.finite(this.x + dx, "x");

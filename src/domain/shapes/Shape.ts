@@ -1,3 +1,4 @@
+import type { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { DomainError } from "../DomainError.js";
 import { NumericRules } from "../NumericRules.js";
 import { TreeStructure } from "../internal/TreeStructure.js";
@@ -29,6 +30,7 @@ export abstract class Shape {
 
   public getId(): string { return this.id; }
   public abstract getType(): string;
+  public abstract captureGeometry(): GeometrySnapshot;
   public getParent(): Shape | undefined { return TreeStructure.getParent(this); }
   public isContainer(): boolean { return false; }
   public getChildren(): readonly Shape[] { return Object.freeze([]); }

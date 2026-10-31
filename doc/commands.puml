@@ -1,0 +1,51 @@
+@startuml
+ title Stage 4 — Command and history
+ interface CommandContext {
+   + getDocument(): SvgDocument
+ }
+ interface Command {
+   + execute(context): CommandResult
+ }
+ interface UndoableCommand {
+   + undo(context): CommandResult
+   + redo(context): CommandResult
+ }
+ abstract class EditCommand {
+   - phase
+   - document
+   # apply(document)
+   # revert(document)
+   # reapply(document)
+ }
+ class CreateCommand
+ class MoveCommand
+ class CommandResult
+ class EditorSession
+ class CommandExecutor
+ class CommandHistory
+ class SvgDocument
+ class GeometrySnapshot
+ abstract class Shape {
+   + captureGeometry(): GeometrySnapshot
+ }
+ Command <|-- UndoableCommand
+ UndoableCommand <|.. EditCommand
+ EditCommand <|-- CreateCommand
+ EditCommand <|-- MoveCommand
+ CommandContext <|.. EditorSession
+ CommandExecutor *-- EditorSession
+ CommandExecutor *-- CommandHistory
+ CommandHistory o-- UndoableCommand : undo / redo stacks
+ CommandHistory ..> CommandContext
+ EditCommand ..> CommandContext
+ EditCommand ..> CommandResult
+ CommandContext ..> SvgDocument
+ CreateCommand ..> SvgDocument
+ MoveCommand ..> Shape
+ MoveCommand o-- GeometrySnapshot : before / after
+ Shape ..> GeometrySnapshot : captures private geometry
+ note bottom of CommandHistory
+   Only successful operations move stack entries.
+   Successful document operation clears and blocks history.
+ end note
+@enduml

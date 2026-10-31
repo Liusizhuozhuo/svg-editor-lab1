@@ -1,3 +1,4 @@
+import { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { NumericRules } from "../NumericRules.js";
 import { Shape } from "./Shape.js";
 
@@ -21,6 +22,19 @@ export class Line extends Shape {
   }
 
   public override getType(): string { return "line"; }
+
+  public override captureGeometry(): GeometrySnapshot {
+    const x1 = this.x1;
+    const y1 = this.y1;
+    const x2 = this.x2;
+    const y2 = this.y2;
+    return new GeometrySnapshot(this, () => {
+      this.x1 = x1;
+      this.y1 = y1;
+      this.x2 = x2;
+      this.y2 = y2;
+    });
+  }
 
   protected override planMove(dx: number, dy: number): () => void {
     const x1 = NumericRules.finite(this.x1 + dx, "x1");

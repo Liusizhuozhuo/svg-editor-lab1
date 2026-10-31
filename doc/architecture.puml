@@ -28,8 +28,8 @@ infra ..> domain
 ports ..> domain
 note bottom of domain
 No CLI, filesystem or concrete infrastructure imports.
-Stage 3: CLI entry, shapes and document tree implemented.
-Commands and IO modules are still planned.
+Stage 4: shapes, documents, create/move commands and history implemented.
+Interactive parsing and SVG IO are still planned.
 domain/internal is used only by Shape, Group and SvgDocument.
 end note
 @enduml

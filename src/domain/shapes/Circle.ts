@@ -1,3 +1,4 @@
+import { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { NumericRules } from "../NumericRules.js";
 import { Shape } from "./Shape.js";
 
@@ -18,6 +19,17 @@ export class Circle extends Shape {
   }
 
   public override getType(): string { return "circle"; }
+
+  public override captureGeometry(): GeometrySnapshot {
+    const cx = this.cx;
+    const cy = this.cy;
+    const r = this.r;
+    return new GeometrySnapshot(this, () => {
+      this.cx = cx;
+      this.cy = cy;
+      this.r = r;
+    });
+  }
 
   protected override planMove(dx: number, dy: number): () => void {
     const cx = NumericRules.finite(this.cx + dx, "cx");

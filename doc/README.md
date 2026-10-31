@@ -2,7 +2,7 @@
 
 ## 文档状态
 
-第 3 阶段修订。工程骨架、图形模型、文档树和全局 ID 管理已实现；Command、历史、CLI 解析和 SVG 读写仍是后续计划。各阶段记录保留当时状态，以本节和最新阶段记录为当前实现范围。
+第 4 阶段修订。工程骨架、图形模型、文档树、Command 执行、创建/移动及历史管理已实现；CLI 解析、其他编辑命令和 SVG 文件读写仍是后续计划。各阶段记录保留当时状态，以本节和最新阶段记录为当前实现范围。
 需求依据：`../phase_cli_1.md`。当前范围为 CLI、六种内置图形和任务书列出的全部命令；不开发 Web 界面、box 或动态插件加载。
 
 ## 架构方案
@@ -54,10 +54,10 @@ presentation ..> domain
 
 ### 设计模式的选择
 
-- **Command（必需）**：编辑操作封装为命令对象，执行成功后才记入历史。历史管理器只调用接口，不识别具体命令名。查询命令不入栈；成功的文档操作触发历史屏障。undo/redo 不记录为新的编辑。第 4 阶段开始落地，当前没有命令实现。
+- **Command（必需）**：编辑操作封装为命令对象，执行成功后才记入历史。历史管理器只调用接口，不识别具体命令名。查询命令不入栈；成功的文档操作触发历史屏障。undo/redo 不记录为新的编辑。第 4 阶段已落地 CreateCommand、MoveCommand 和统一历史管理，具体协议见最新阶段记录。
 - **Composite**：Shape 为统一抽象，Group 保存有序子节点。叶子处理自身几何，容器通过多态递归操作；移动和缩放不得让同一个叶子重复变化。第 2 阶段已落地，详见下方实现记录与类图。
 - **Factory / 类型注册**：六种类型通过 ShapeFactory 集中构造，CLI 创建与 SVG 导入复用同一类型注册入口。具体类型定义处理自身参数，避免输出和读取模块各写一套 switch(tag)。未来插件加载不在本阶段实现。
-- **撤销恢复策略（候选）**：优先评估操作涉及的状态快照；复杂树操作允许文档快照。必须保留原父级、顺序、属性是否存在等信息，不能仅使用数学逆运算。快照须深拷贝并恢复索引；若恢复时替换对象，历史命令应按 ID 解析目标，避免持有过期对象引用。第 4 阶段决定最终方案并记录理由。
+- **Memento 与局部恢复**：第 4 阶段采用 GeometrySnapshot 精确恢复移动前后的几何值；CreateCommand 保存创建对象及插入位置，撤销/重做通过文档维护索引。保留对象身份，不替换整份文档。未来 set/delete/group 需分别保存属性是否存在、父级和顺序，不能直接套用几何快照。
 
 按名字分发仅保留两处：CommandRouter（命令名）和 ShapeFactory（图形类型名）。依任务书标为**待重构点**：后续改为可注入注册、减少修改中央清单的需求；注册表仍是名字分发，不能以此规避约束。
 属性白名单由各图形封装，不在命令中根据图形类型分支。tree/show 和 SVG 输出使用多态描述或访问者，具体选择随对应阶段记录，当前不预建复杂框架。
@@ -98,7 +98,7 @@ presentation ..> domain
 
 | 问题 | 初步建议 | 状态 |
 |---|---|---|
-| 文档操作后旧历史是否可再次访问 | 成功的历史屏障清空旧栈并设禁用标志，新编辑开启新历史段 | 待确认；任务书只明确禁用/解禁 |
+| 文档操作后旧历史是否可再次访问 | 成功的历史屏障清空旧栈并设禁用标志，新编辑开启新历史段 | 第 4 阶段采用；任务书只明确禁用/解禁，清栈属于实现决策 |
 | 不同父级元素 group 的新组位置与顺序 | 候选为最近公共祖先下插入，按原文档遍历顺序收编；同父级插入最早选中位置 | 待确认，涉及验收语义 |
 | 外部 transform 与未知 SVG 内容 | 首先界定支持子集；不支持的影响视觉语义的结构不得静默丢弃 | 待确认，背景示例不等于完整 SVG 支持要求 |
 | set g fill | 设置组自身属性，不覆盖后代已有颜色；实际 SVG 继承由后续输出与渲染体现 | 第 2 阶段采用的实现决策，非任务书逐字要求 |
@@ -136,18 +136,18 @@ presentation ..> domain
 
 ### 模块划分
 
-第 3 阶段新增 domain/SvgDocument.ts 与 domain/internal/TreeStructure.ts；内部结构状态由 TreeStructure 封装，SvgDocument 统一维护树和 ID 索引。保持一类一文件；未实现模块仍由 .gitkeep 保留。新增 internal 子目录属于 domain 内部细化，已记入阶段修订。
+第 4 阶段新增 commands 的命令协议与实现、application 的会话/执行器/历史管理、ports/CommandContext.ts 和 domain/GeometrySnapshot.ts。各模块与原规划一致；未实现的 infrastructure/presentation 仍为占位目录。保持一类一文件，无新增外部依赖。
 
 ### 依赖方向
 
-当前 main.ts → cli/CliApplication.ts；domain 中仅存在模块内部导入，无 IO 或上层依赖。图形行为采用多态，没有 switch(tag) 或根据 getType() 选择操作的分支。
+当前 main.ts → cli；application → commands/domain/ports；commands → domain/ports；ports → domain；domain 仅模块内部依赖。没有 commands → application 或领域 IO 依赖。历史管理器只依赖 UndoableCommand 协议，无具体命令名分发；命令调用多态图形行为，无 switch(tag)。
 后续新增模块时检查 import，重点检查 domain 是否依赖 IO、commands 与 application 是否形成环，以及是否增加类型名分派点。
 
 ## 质量保证手段
 
 当前使用 TypeScript strict、noUncheckedIndexedAccess、exactOptionalPropertyTypes、noImplicitOverride 与 noEmitOnError。
 通过 npm run check 验证类型检查与编译，通过 npm run cli 验证启动入口。
-Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 44 项领域测试通过；尚未覆盖未来 CLI、历史和 SVG 文件读写功能。
+Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 66 项领域与命令测试通过；尚未覆盖未来 CLI 和 SVG 文件读写功能。
 依赖版本由 package-lock.json 锁定，使用 npm ci 复现安装。
 
 后续验证随功能同步：
@@ -282,3 +282,66 @@ document.insert(removed, location.parentId, location.index);
 - 新增 `tests/document.test.mjs` 20 项测试：全局/子树内部 ID 冲突、大小写、插入位置、整树删除与恢复、跨文档复用保护与合法转移、换父级、自身/后代环、同级排序、画布原子修改、冻结查询，以及连续操作中的树/索引一致性。
 - 测试中的独立遍历检查同时核对父级、对象身份、ID 查询和元素数量，避免只检查输出顺序而漏掉索引错误。
 - `npm run check` 通过严格类型检查、编译和全部 44 项测试。CLI 仍只显示阶段说明；未引入新依赖，没有改动提交或远程仓库。
+
+## 第 4 阶段：Command 执行与编辑历史
+
+### 新增类和接口
+
+| 文件 | 职责 |
+|---|---|
+| ports/CommandContext.ts | 命令所需的最小接口，仅提供当前文档；命令不依赖具体 EditorSession |
+| commands/Command.ts | 执行协议，返回 CommandResult |
+| commands/UndoableCommand.ts | 扩展 undo/redo；历史只保存此协议对象 |
+| commands/EditCommand.ts | 生命周期模板：new → done → undone → done；成功后才更新状态，绑定原文档 |
+| commands/CommandResult.ts | 封装摘要供终端展示，不直接输出 |
+| commands/CreateCommand.ts | 插入已构造的图形/子树，记录位置，撤销移除，重做恢复 |
+| commands/MoveCommand.ts | 按 ID 找到目标，通过多态移动，并保存前后几何快照 |
+| application/EditorSession.ts | 保存当前文档和路径，实现 CommandContext |
+| application/CommandHistory.ts | 统一管理 undo/redo 栈、命令重复提交和历史屏障 |
+| application/CommandExecutor.ts | 应用调用入口，组织初始化、换文档、命令执行和历史 |
+| domain/GeometrySnapshot.ts | 不透明几何备忘录，保存图形私有字段的恢复闭包及结构校验信息 |
+
+类关系图：[commands.puml](commands.puml)。图形类通过 captureGeometry() 提供快照，不向命令暴露可写字段，也不让命令按图形类型判断。
+
+### 调用示例（应用 API，尚非交互式 CLI）
+
+```typescript
+const editor = new CommandExecutor();
+editor.initialize(800, 600);
+editor.execute(new CreateCommand(new Group("scene")));
+editor.execute(new CreateCommand(new Rect("r1", 0.1, 20, 100, 50), "scene"));
+editor.execute(new MoveCommand("r1", 0.2, 0));
+editor.undo(); // x 精确恢复为 0.1，不使用 0.30000000000000004 - 0.2
+editor.redo(); // 恢复已保存的执行后数值，不重复计算偏移
+```
+
+CreateCommand 接受已构造的 Shape；类型名解析、图形工厂和 CLI 解析不在本阶段。输出摘要通过 CommandResult.getSummary() 获取。
+
+### 历史与失败规则
+
+1. 一条成功编辑入 undo 栈一次；只有执行成功才清 redo 并解禁。失败命令不占历史单元，可以修正前置条件后重试。
+2. undo/redo 先调用命令，成功后再移动栈元素；失败保留原栈及命令生命周期。
+3. 一个命令实例代表一次编辑，不允许重复提交；redo 通过 redo() 处理，不把旧命令当新编辑执行。
+4. 文档操作成功后清空两个栈并禁止 undo/redo，统一报 `undo not allowed after io command`。下一次成功编辑开启新历史段；之前的历史不会复活。这是对任务书未明确清栈部分的实现决策。
+5. initialize 先完整构造新文档，成功后再换会话并建立屏障；失败保留旧文档、路径和历史。replaceDocument 是后续 read 成功后的接入点。
+6. markDocumentOperation 是后续 save/修改 canvas 成功后的历史接入点，本身不读写文件、不改变画布。调用者必须在业务操作成功后调用，不能对失败或只读查询调用。
+7. 只读查询直接读取文档，不经过编辑历史；tree/show/help 的 CLI 解析和格式化仍待阶段 5。
+8. 命令协议不自动回滚任意第三方命令。每个具体命令必须保证领域操作的原子性；当前两种命令依赖已验证的文档插入/删除和几何移动实现。
+
+### 快照和封装决策
+
+- 移动使用局部几何快照，不采用反向移动。每个叶子自行捕获私有数值，Group 递归组合快照，精确保留浮点值。
+- 快照不保存样式或文本，因为 move 不修改它们；不能把 GeometrySnapshot 当成通用文档快照。
+- 创建撤销保留原对象及子树，重做恢复原插入位置，因此历史中的图形身份稳定。MoveCommand 每次恢复前仍通过 ID 查找并检查对象身份，避免误改同 ID 的替代对象。
+- GeometrySnapshot 恢复前检查子树身份、父级及顺序，发现绕过历史的结构修改时拒绝恢复，防止部分恢复或操作过期目标。
+- 正常应用编辑必须经过 CommandExecutor；EditorSession.replaceDocument 是应用层内部协作入口，外部应调用 CommandExecutor.replaceDocument。直接修改领域对象不会被自动纳入历史，本阶段不承诺支持任意外部修改与历史混用。
+- 没有新增按命令名或图形类型名分派。领域层仍无 application/commands 依赖；GeometrySnapshot 对 Shape 使用 type-only 导入，避免运行时循环。
+
+### 过程记录与验证
+
+- 开始时工作区干净。按约定只接入创建和移动，不提前实现其余编辑命令、CLI 或文件读写。
+- 通过实际浮点例子验证逆运算不可靠：0.1 + 0.2 再减 0.2 不能精确回到原值，因此选择操作前后快照；重复撤销/重做 30 次验证无累计漂移。
+- 在生命周期和历史栈两个层面都采用“成功后才记录”，使失败执行、失败撤销和失败重做能保留可重试状态。
+- 新增 tests/commands.test.mjs 的 22 项测试；涵盖六种类型统一创建、指定父级和位置、整棵子树一个历史单元、嵌套组移动、浮点恢复、redo 分支、历史屏障、初始化失败、重复提交、文档切换及失败恢复路径。
+- npm run check 通过严格类型检查、编译及全部 66 项测试；既有 44 项全部继续通过。CLI 仍只显示阶段说明，测试直接调用应用 API。
+- 文档和图示随实现更新；没有新增依赖，没有执行 git 暂存、提交、推送或标签操作。
