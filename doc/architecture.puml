@@ -1,5 +1,5 @@
 @startuml
-title SVG CLI — implemented module dependencies (stage 7)
+title SVG CLI — implemented module dependencies (stage 8)
 skinparam componentStyle rectangle
 package "src/main.ts\nComposition root" as bootstrap
 package "cli" as cli
@@ -28,7 +28,7 @@ infra ..> domain
 ports ..> domain
 note bottom of domain
 No CLI, filesystem or concrete infrastructure imports.
-Stage 7: editing, SVG IO and canvas lifecycle implemented.
+Stage 8: editing, SVG IO and canvas lifecycle implemented.
 SvgReader uses ShapeFactory; SvgWriter implements ShapeVisitor.
 domain/internal is used only by Shape, Group and SvgDocument.
 end note

@@ -12,11 +12,12 @@ export class SvgReader {
   constructor(private readonly factory = new ShapeFactory()) {}
   public read(source: string): DocumentReadResult {
     XmlEscaper.validate(source);
-    if (/<!DOCTYPE/i.test(source)) throw new DomainError("SVG DOCTYPE is not supported");
     const xml = new DOMParser({
       onError: (_level, message) => { throw new DomainError(`invalid SVG XML: ${message}`); },
       normalizeLineEndings: value => value.replace(/\r\n?/g, "\n")
     }).parseFromString(source, "text/xml");
+    // Inspect the parsed node, not text that may occur in comments or CDATA.
+    if (xml.doctype) throw new DomainError("SVG DOCTYPE is not supported");
     const root = xml.documentElement;
     if (!root || root.localName !== "svg") throw new DomainError("expected SVG root element");
     for (let node = xml.firstChild; node; node = node.nextSibling) {
@@ -42,7 +43,7 @@ export class SvgReader {
       const id = element.getAttribute("id");
       if (id !== null) {
         if (!id || /\s/.test(id)) throw new DomainError("invalid SVG id");
-        if (ids.has(id)) throw new DomainError(`duplicate id: ${id}`);
+        if (ids.has(id)) throw new DomainError(`id already exists: ${id}`);
         ids.add(id);
       }
       for (const child of this.children(element)) reserve(child);

@@ -5,8 +5,8 @@
 
 ## 当前进度
 
-已完成第 7 阶段：SVG 读写与文档生命周期。可以在终端输入命令，也可从标准输入回放脚本。
-当前支持任务书的全部 19 个命令与六种内置图形，可以保存 SVG 并在浏览器打开。第 8 阶段的全量验收和文档定稿尚未进行。
+第 8 阶段代码验收与文档定稿已完成。可以在终端输入命令，也可从标准输入回放脚本。
+当前支持任务书的全部 19 个命令与六种内置图形，可以保存 SVG 并在浏览器打开。自动化与架构验收已通过；浏览器视觉检查待人工完成，详见 [验收记录](doc/acceptance.md)。
 
 ## 环境与命令
 
@@ -21,7 +21,7 @@ npm run check
 - `npm run cli`：编译后启动交互式 CLI，提示符为 `svg>`。
 - `npm run typecheck`：严格类型检查，不输出文件。
 - `npm run build`：编译到 `dist/`。
-- `npm test`：先编译，再运行 Node.js 内置测试发现器；当前 141 项领域、命令、解析与进程集成测试。
+- `npm test`：先编译，再运行 Node.js 内置测试发现器；当前 151 项领域、命令、解析与进程集成测试。
 - `npm run check`：严格类型检查，然后执行编译与测试。
 
 测试位于 `tests/*.test.mjs`，包括领域模型、命令历史、参数解析、格式化与真实进程脚本回放。
@@ -69,7 +69,7 @@ front <id>
 back <id>
 ```
 
-分组按原文档顺序收编；跨父级时新组放到最近公共祖先下的最早受影响位置。根级容器不能 ungroup（任务书要求），可以先在 scene 等外层容器中组织节点。set g fill 修改组自身样式，不覆盖孩子显式颜色；解组/换父级不补偿继承样式。read/save/canvas 已接入，完整实验验收留到第 8 阶段。
+分组按原文档顺序收编；跨父级时新组放到最近公共祖先下的最早受影响位置。根级容器不能 ungroup（任务书要求），可以先在 scene 等外层容器中组织节点。set g fill 修改组自身样式，不覆盖孩子显式颜色；解组/换父级不补偿继承样式。read/save/canvas 已接入，验收结果与明确限制见 doc/acceptance.md。
 
 ## 协作约定
 
@@ -95,3 +95,21 @@ save
 **支持子集边界：** 根 svg 必须有正数 width/height（可带 px）；viewBox 可省略，提供时须为 `0 0 width height`。图形几何属性使用无单位数值，缺省为 0。transform、CSS、其他元素/属性、DTD、外部实体不支持并明确报错；不会静默忽略。注释不保存，文件排版不保证原样。该编辑器不支持任意外部 SVG 的全部规范。
 
 保存先在目标目录写入独立临时文件，再替换目标文件；失败不更新会话路径或历史。SVG 读写采用 UTF-8，XML 解析依赖 @xmldom/xmldom，版本由 lockfile 锁定。
+
+## 验收与提交
+
+执行 `npm run check` 运行完整验证。任务书原文会话与导出样例位于 `examples/acceptance/`；其中 typical.stderr.txt 的两条错误是任务书要求的失败案例，不是验收失败。
+
+在工程根目录运行以下命令重放（会覆盖该示例目录里的 demo.svg、flowchart.svg）：
+
+```powershell
+npm run build
+Push-Location examples/acceptance
+cmd /c "node ../../dist/main.js < typical.txt"
+cmd /c "node ../../dist/main.js < flowchart.txt"
+Pop-Location
+```
+
+用浏览器打开 `examples/acceptance/flowchart.svg`，检查两个彩色矩形、中文标题与连线。自动化验证已检查 SVG 内容与往返；本轮 Chrome 应用访问授权超时，未完成浏览器视觉核验。
+
+提交步骤与 final 标签命令见 [验收记录](doc/acceptance.md)。所有 commit、push、tag 均由你执行；最终标签必须指向最终提交，且在作业截止前推送。

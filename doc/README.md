@@ -2,14 +2,14 @@
 
 ## 文档状态
 
-第 7 阶段修订。SVG 读写、read/save/canvas 与文档历史屏障已接入 CLI；全量验收和文档定稿留到第 8 阶段。各阶段记录保留当时状态，以本节和最新阶段记录为当前实现范围。
+第 8 阶段修订。19 个命令、六种图形、SVG 读写及自动化/架构验收已完成。浏览器视觉检查因应用访问授权超时未完成，提交与 final 标签由用户执行，详见 [验收记录](acceptance.md)。各阶段记录保留当时状态，以本节和最新阶段记录为当前实现范围。
 需求依据：`../phase_cli_1.md`。当前范围为 CLI、六种内置图形和任务书列出的全部命令；不开发 Web 界面、box 或动态插件加载。
 
 ## 架构方案
 
 ### 模块划分
 
-| 目录 | 职责 | 计划中的主要类 / 接口 |
+| 目录 | 职责 | 主要类 / 接口 |
 |---|---|---|
 | src/cli | REPL、分词、语法解析、命令分发、统一终端错误输出 | CliApplication、Tokenizer、Token、TokenCursor、CommandRouter、各命令 Parser |
 | src/domain | 几何行为、图形树、全局 ID 唯一性、父子约束 | Shape、Rect、Circle、Ellipse、Line、TextShape、Group、SvgDocument、ShapeFactory |
@@ -57,7 +57,7 @@ presentation ..> domain
 - **Command（必需）**：编辑操作封装为命令对象，执行成功后才记入历史。历史管理器只调用接口，不识别具体命令名。查询命令不入栈；成功的文档操作触发历史屏障。undo/redo 不记录为新的编辑。第 4 阶段已落地 CreateCommand、MoveCommand 和统一历史管理，具体协议见最新阶段记录。
 - **Composite**：Shape 为统一抽象，Group 保存有序子节点。叶子处理自身几何，容器通过多态递归操作；移动和缩放不得让同一个叶子重复变化。第 2 阶段已落地，详见下方实现记录与类图。
 - **Factory / 类型注册**：六种类型通过 ShapeFactory 集中构造，CLI 创建与 SVG 导入复用同一类型注册入口。具体类型定义处理自身参数，避免输出和读取模块各写一套 switch(tag)。未来插件加载不在本阶段实现。
-- **Memento 与局部恢复**：第 4 阶段采用 GeometrySnapshot 精确恢复移动前后的几何值；CreateCommand 保存创建对象及插入位置，撤销/重做通过文档维护索引。保留对象身份，不替换整份文档。未来 set/delete/group 需分别保存属性是否存在、父级和顺序，不能直接套用几何快照。
+- **Memento 与局部恢复**：第 4 阶段采用 GeometrySnapshot 精确恢复移动前后的几何值；CreateCommand 保存创建对象及插入位置，撤销/重做通过文档维护索引。保留对象身份，不替换整份文档。第 6 阶段已通过 AttributeSnapshot 保存属性是否存在，通过 DocumentStructureSnapshot 保存结构、父级及顺序。结构编辑使用整份文档拓扑快照，时间与空间成本为 O(N)。
 
 按名字分发仅保留两处：CommandRouter（命令名）和 ShapeFactory（图形类型名）。依任务书标为**待重构点**：后续改为可注入注册、减少修改中央清单的需求；注册表仍是名字分发，不能以此规避约束。
 属性白名单由各图形封装，不在命令中根据图形类型分支。第 5 阶段 tree/show 使用 ShapeVisitor 与 Shape.accept() 双分派；第 7 阶段 SVG 输出复用同一访问者协议。访问者通过具体方法处理类型，不再新增类型名字分派。
@@ -103,8 +103,8 @@ presentation ..> domain
 | 外部 transform 与未知 SVG 内容 | 首先界定支持子集；不支持的影响视觉语义的结构不得静默丢弃 | 第 7 阶段采用明确支持子集，详见下方记录 |
 | set g fill | 设置组自身属性，不覆盖后代已有颜色；实际 SVG 继承由后续输出与渲染体现 | 第 2 阶段采用的实现决策，非任务书逐字要求 |
 | init 后首次 save path | 成功后记录该路径，供后续无参数 save 使用 | 第 7 阶段采用 |
-| 重复 ID、尺寸边界、空历史错误文案 | 第 2 阶段采用有限数值、非负尺寸和描边宽度；全局重复 ID 校验与历史错误文案仍待对应阶段处理 | 部分已落地 |
-| 元素统计 | 统计全部图形及 g，不含 svg 根；任务书 6.1 版本 A 应为 9，示例写 8 | 已识别示例不一致，需统一验收口径 |
+| 重复 ID、尺寸边界、空历史错误文案 | 第 2 阶段采用有限数值、非负尺寸和描边宽度；全局重复 ID 校验、无文档与历史屏障报错已实现并测试 | 已落地 |
+| 元素统计 | 统计全部图形及 g，不含 svg 根；任务书 6.1 版本 A 是 8（3 个 g、2 个 rect、2 个 text、1 个 line） | 第 8 阶段原文回放确认 8；先前文档的 9 是误计，已修正 |
 
 导入实现应先解析与验证完整候选文档，成功后再替换当前文档；先收集所有显式 ID，再给无名元素分配不冲突的 ID。
 
@@ -141,16 +141,16 @@ presentation ..> domain
 ### 依赖方向
 
 当前 main.ts → cli/application/infrastructure；infrastructure → ports/domain 与 XML 库及 Node 文件系统；cli → application/commands/domain/presentation；application → commands/domain/ports；commands → domain/ports；ports/presentation → domain；domain 仅模块内部依赖。终端 IO 仅在 CLI。命令名与类型名查找分别集中在 CommandRouter 与 ShapeFactory，均标记待重构；查询输出通过访问者，不含 switch(tag)。
-后续新增模块时检查 import，重点检查 domain 是否依赖 IO、commands 与 application 是否形成环，以及是否增加类型名分派点。
+第 8 阶段扫描全部 src 静态 import，未发现违反上述模块规则的依赖；TreeStructure 的调用入口仍限于 Shape、Group、SvgDocument。tests/architecture.test.mjs 提供静态导入与源码约定检查，属于针对当前源码写法的检查，不是通用 TypeScript 语义分析器。
 
 ## 质量保证手段
 
 当前使用 TypeScript strict、noUncheckedIndexedAccess、exactOptionalPropertyTypes、noImplicitOverride 与 noEmitOnError。
 通过 npm run check 验证类型检查与编译，通过 npm run cli 验证启动入口。
-Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 141 项测试通过，覆盖编辑命令、真实 CLI、SVG 往返、缺失 ID、严格导入边界、文件失败原子性与 canvas 历史屏障。
+Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 151 项测试通过，覆盖编辑命令、真实 CLI、SVG 往返、缺失 ID、严格导入边界、文件失败原子性与 canvas 历史屏障。
 依赖版本由 package-lock.json 锁定，使用 npm ci 复现安装。
 
-后续验证随功能同步：
+验收覆盖：
 
 - 领域：唯一 ID、有限数值、父子一致性、环检测、递归移动/缩放只执行一次。
 - 命令：执行/撤销恢复相同状态，失败前后状态一致，分组或删除恢复父级与位置。
@@ -159,7 +159,7 @@ Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 14
 - SVG：文本转义、无名 ID 与已有 ID 冲突、读写往返、读取失败保留旧文档、保存失败不改会话。
 - 整体：回放任务书适用会话并打开生成 SVG；box 等后续阶段示例不计入本阶段必做。
 
-最终文档将补充真实测试结果和剩余限制，不提前宣称全部功能完成。
+完整命令覆盖表、实测结果与剩余限制见 [acceptance.md](acceptance.md)。
 
 ### 第 1 阶段实际验证结果
 
@@ -469,3 +469,26 @@ CreateCommand 接受已构造的 Shape；类型名解析、图形工厂和 CLI �
 `npm run check` 验证严格类型检查、编译和累计 141 项测试。提供 `examples/import-demo.svg` 演示自动补 ID；根 README 包含交互步骤。PlantUML 更新源码，本阶段未渲染类图，也未将浏览器视觉验收冒充为已完成。
 
 本阶段不提交 Git、不打 final 标签；下一阶段进行任务书全量验收、架构一致性检查与文档定稿。
+
+## 第 8 阶段：全量核对、架构自查与文档定稿
+
+### 发现与修正
+
+1. 逐项对照任务书后发现，早期架构记录将 6.1 版本 A 的元素数误计为 9。原文共 8 条 create，实际为 8 个元素，任务书示例正确。已经修正文档，并直接从任务书提取会话进行真实 CLI 回放测试，避免再复制错误预期。
+2. SvgReader 全文匹配 `<!DOCTYPE` 会把注释/CDATA 中的普通文本误判为声明。改为检查解析后的 DocumentType；真实 DTD 仍拒绝，解析库不加载外部 DTD。新增普通文本、真实/外部 DOCTYPE 回归测试。
+3. 导入重复 ID 的错误统一为任务书要求的 `id already exists: <id>`，与 CLI 创建行为保持一致。
+4. 更新模式说明、架构图标题与字段/方法，使当前说明不再把已实现功能写成未来计划。历史阶段段落保留当时事实。
+
+### 验证证据
+
+- 原有 141 项，加 3 项 SVG 回归、4 项任务书/混合编辑验收、3 项架构源码约定检查，共 151 项。
+- 任务书第 6 节：实际进程仅产生预期的祖先/后代分组错误与 IO 后 undo 错误；保存 5 个元素、读取 7 个元素并补 rect1。
+- 任务书第 6.1 节版本 A：无 stderr，保存 8 个元素；节点移动撤销后坐标恢复，中文文本修改保留。
+- 混合编辑序列覆盖全部 10 个编辑命令，逐步 undo/redo 与保存的完整 SVG 状态逐一比较；box 明确拒绝且不破坏 redo。
+- 全部静态 import 与内部树结构依赖检查通过。人工搜索未发现 switch(tag) 或按具体图形类判断的额外分发；两处注册表仍保留 TODO。Shape 的属性绑定表负责属性白名单，并非第三处命令名/图形类型名分发。
+- 保存回放脚本、输入 SVG、导出 SVG 和 stdout/stderr 到 examples/acceptance，便于复核。
+- 浏览器连接不可用，尝试 computer-use 访问本机 Chrome 后授权等待超时；没有成功进行浏览器视觉核验。PlantUML 提供源码及 Markdown 内嵌包图，未生成渲染图片。
+
+### 提交状态
+
+开始本阶段时工作区干净，git log 可见阶段 1—7 的独立提交；未发现已有 final 标签。本轮不执行任何暂存、提交、推送或打标签。建议先提交 SVG 修复及回归测试，再提交验收测试、示例与文档；用户完成浏览器检查后在最终提交打 final 并推送。详细命令见 acceptance.md。

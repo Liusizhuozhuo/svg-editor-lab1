@@ -112,3 +112,16 @@ test('actual CLI reads before init, prints warnings, saves quoted paths and cont
  assert.match(result.stderr,/error: undo not allowed after io command/);
  assert.equal(reader.read(readFileSync(output,'utf8')).getDocument().getShape('text1').getAttributes().text,'Hello & 中文');
 });
+
+test('DOCTYPE-like text in comments and CDATA is ordinary content',()=>{
+ const doc=reader.read(svg('<!-- <!DOCTYPE example> --><text id="t"><![CDATA[<!DOCTYPE example>]]></text>')).getDocument();
+ assert.equal(doc.getShape('t').getAttributes().text,'<!DOCTYPE example>');
+ assert.equal(snapshot(reader.read(writer.write(doc)).getDocument()),snapshot(doc));
+});
+test('real DOCTYPE remains unsupported with no entity references',()=>{
+ assert.throws(()=>reader.read('<!DOCTYPE svg>'+svg('')),/DOCTYPE is not supported/);
+ assert.throws(()=>reader.read('<!DOCTYPE svg SYSTEM "file:///nonexistent.dtd">'+svg('')),/DOCTYPE is not supported/);
+});
+test('duplicate imported IDs use the task specification error message',()=>{
+ assert.throws(()=>reader.read(svg('<rect id="r1"/><circle id="r1"/>')), {message:'id already exists: r1'});
+});

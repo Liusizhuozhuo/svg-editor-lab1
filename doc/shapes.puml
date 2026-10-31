@@ -1,5 +1,5 @@
 @startuml
- title Stage 3 — Shapes and document structure
+ title Stage 8 - Shapes and document structure
  abstract class Shape {
    - id: string
    + getId(): string
@@ -9,6 +9,9 @@
    + getChildren(): readonly Shape[]
    + move(dx, dy): void
    + scale(factor): void
+   + accept(visitor)
+   + captureGeometry()
+   + captureAttributes()
    # planMove(dx, dy): update
    # planScale(factor): update
  }
@@ -25,6 +28,10 @@
    + remove(id): Shape
    + reparent(id, parentId, position)
    + findById(id): Shape
+   + group(newId, ids): Group
+   + ungroup(id)
+   + captureStructure()
+   + resize(width, height)
  }
  class TreeStructure <<internal>>
  SvgDocument ..> TreeStructure

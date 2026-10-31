@@ -1,5 +1,5 @@
 @startuml
- title Stage 6 — Commands and mementos
+ title Stage 8 - Commands, mementos and document IO
  interface CommandContext {
    + getDocument(): SvgDocument
  }
