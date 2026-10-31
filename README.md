@@ -5,8 +5,8 @@
 
 ## 当前进度
 
-已完成第 5 阶段：交互式 CLI、命令解析与图形查询。可以在终端输入命令，也可从标准输入回放脚本。
-当前支持 init/create/move/undo/redo/tree/show/help，以及六种内置图形和 create 的 in 子句。其他编辑命令将在第 6 阶段接入，SVG 读写与 canvas 命令将在第 7 阶段接入。
+已完成第 6 阶段：全部图形编辑命令及其撤销重做。可以在终端输入命令，也可从标准输入回放脚本。
+当前支持 init、全部图形编辑命令、undo/redo、tree/show/help，以及六种内置图形。read/save/canvas 留到第 7 阶段，当前不能读写 SVG 文件。
 
 ## 环境与命令
 
@@ -21,7 +21,7 @@ npm run check
 - `npm run cli`：编译后启动交互式 CLI，提示符为 `svg>`。
 - `npm run typecheck`：严格类型检查，不输出文件。
 - `npm run build`：编译到 `dist/`。
-- `npm test`：先编译，再运行 Node.js 内置测试发现器；当前 89 项领域、命令、解析与进程集成测试。
+- `npm test`：先编译，再运行 Node.js 内置测试发现器；当前 113 项领域、命令、解析与进程集成测试。
 - `npm run check`：严格类型检查，然后执行编译与测试。
 
 测试位于 `tests/*.test.mjs`，包括领域模型、命令历史、参数解析、格式化与真实进程脚本回放。
@@ -51,11 +51,25 @@ help
 ```powershell
 npm run build
 cmd /c "node dist/main.js < examples\phase5.txt"
+cmd /c "node dist/main.js < examples\phase6.txt"
 ```
 
 这里用输入重定向传递原始 UTF-8 文件，避免旧版 PowerShell 管道把中文转换为其他编码。脚本模式不输出欢迎语和提示符；成功结果到 stdout，错误到 stderr，每个错误一行且继续执行后续命令。回放不是事务，之前已成功执行的命令不会因后续报错回滚。
 
-当前 `help` 列出已接入的八个命令和六种 create 参数格式。`save/read/canvas/delete/scale/set/group/ungroup/addto/front/back` 尚未接入，不应将当前结果视为完整实验验收。
+当前 `help` 列出 16 个命令和六种 create 参数格式。新增命令：
+
+```text
+delete <id>
+scale <id> <factor>
+set <id> <attr> <value>
+group <newGid> <id1> [id2 ...]
+ungroup <gid>
+addto <gid> <id>
+front <id>
+back <id>
+```
+
+分组按原文档顺序收编；跨父级时新组放到最近公共祖先下的最早受影响位置。根级容器不能 ungroup（任务书要求），可以先在 scene 等外层容器中组织节点。set g fill 修改组自身样式，不覆盖孩子显式颜色；解组/换父级不补偿继承样式。read/save/canvas 尚未接入，不应将当前结果视为完整实验验收。
 
 ## 协作约定
 

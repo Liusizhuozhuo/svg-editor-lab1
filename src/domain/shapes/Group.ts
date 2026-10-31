@@ -14,6 +14,7 @@ export class Group extends Shape {
 
   public override getType(): string { return "g"; }
   public override isContainer(): boolean { return true; }
+  public override canUngroup(): boolean { return true; }
   public override getChildren(): readonly Shape[] { return TreeStructure.getChildren(this); }
 
   public override captureGeometry(): GeometrySnapshot {

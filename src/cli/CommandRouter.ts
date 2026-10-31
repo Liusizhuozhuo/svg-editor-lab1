@@ -1,3 +1,11 @@
+import { DeleteCommandParser } from "./parsers/DeleteCommandParser.js";
+import { ScaleCommandParser } from "./parsers/ScaleCommandParser.js";
+import { SetCommandParser } from "./parsers/SetCommandParser.js";
+import { UngroupCommandParser } from "./parsers/UngroupCommandParser.js";
+import { AddToCommandParser } from "./parsers/AddToCommandParser.js";
+import { FrontCommandParser } from "./parsers/FrontCommandParser.js";
+import { BackCommandParser } from "./parsers/BackCommandParser.js";
+import { GroupCommandParser } from "./parsers/GroupCommandParser.js";
 import { DomainError } from "../domain/DomainError.js";
 import { ShapeFactory } from "../domain/ShapeFactory.js";
 import type { CommandParser } from "./CommandParser.js";
@@ -21,6 +29,7 @@ export class CommandRouter {
 
   constructor() {
     const parsers: CommandParser[] = [new InitCommandParser(), new CreateCommandParser(this.factory),
+      new DeleteCommandParser(), new ScaleCommandParser(), new SetCommandParser(), new UngroupCommandParser(), new AddToCommandParser(), new FrontCommandParser(), new BackCommandParser(), new GroupCommandParser(),
       new MoveCommandParser(), new UndoCommandParser(), new RedoCommandParser(),
       new TreeCommandParser(), new ShowCommandParser(), new HelpCommandParser(() => this.getHelp())];
     for (const parser of parsers) this.parsers.set(parser.getName(), parser);
@@ -39,6 +48,6 @@ export class CommandRouter {
     return ["Available commands:", ...[...this.parsers.values()].map(parser => `  ${parser.getSyntax()}`),
       "", "Shape parameters:", ...this.factory.getSyntax().map(syntax => `  ${syntax}`),
       "", 'Use double quotes for arguments containing spaces. Lines starting with # are comments.',
-      "EOF or Ctrl+C ends the session. Other editing and file commands are not available yet."].join("\n");
+      "EOF or Ctrl+C ends the session. File commands and canvas are not available yet."].join("\n");
   }
 }

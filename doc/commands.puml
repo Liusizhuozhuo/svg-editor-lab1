@@ -1,5 +1,5 @@
 @startuml
- title Stage 4 — Command and history
+ title Stage 6 — Commands and mementos
  interface CommandContext {
    + getDocument(): SvgDocument
  }
@@ -48,4 +48,28 @@
    Only successful operations move stack entries.
    Successful document operation clears and blocks history.
  end note
+ abstract class StructuralEditCommand
+ class DeleteCommand
+ class GroupCommand
+ class UngroupCommand
+ class AddToCommand
+ class FrontCommand
+ class BackCommand
+ class ScaleCommand
+ class SetCommand
+ class AttributeSnapshot
+ class DocumentStructureSnapshot
+ EditCommand <|-- StructuralEditCommand
+ StructuralEditCommand <|-- DeleteCommand
+ StructuralEditCommand <|-- GroupCommand
+ StructuralEditCommand <|-- UngroupCommand
+ StructuralEditCommand <|-- AddToCommand
+ StructuralEditCommand <|-- FrontCommand
+ StructuralEditCommand <|-- BackCommand
+ EditCommand <|-- ScaleCommand
+ EditCommand <|-- SetCommand
+ ScaleCommand o-- GeometrySnapshot
+ SetCommand o-- AttributeSnapshot
+ StructuralEditCommand o-- DocumentStructureSnapshot
+ SvgDocument ..> DocumentStructureSnapshot
 @enduml

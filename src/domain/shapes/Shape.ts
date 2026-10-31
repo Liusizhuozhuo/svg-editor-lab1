@@ -1,3 +1,4 @@
+import { AttributeSnapshot } from "../AttributeSnapshot.js";
 import type { ShapeVisitor } from "../ShapeVisitor.js";
 import type { GeometrySnapshot } from "../GeometrySnapshot.js";
 import { DomainError } from "../DomainError.js";
@@ -7,6 +8,7 @@ import { TreeStructure } from "../internal/TreeStructure.js";
 type AttributeValue = string | number;
 type AttributeBinding = {
   read: () => AttributeValue | undefined;
+  capture: () => (() => void);
   write: (value: AttributeValue) => void;
 };
 
@@ -23,10 +25,10 @@ export abstract class Shape {
       throw new DomainError("id must be non-empty and contain no whitespace");
     }
     this.id = id;
-    this.registerStringAttribute("fill", () => this.fill, value => { this.fill = value; });
-    this.registerStringAttribute("stroke", () => this.stroke, value => { this.stroke = value; });
+    this.registerStringAttribute("fill", () => this.fill, value => { this.fill = value; }, () => { this.fill = undefined; });
+    this.registerStringAttribute("stroke", () => this.stroke, value => { this.stroke = value; }, () => { this.stroke = undefined; });
     this.registerNumericAttribute("stroke-width", () => this.strokeWidth,
-      value => { this.strokeWidth = value; }, true);
+      value => { this.strokeWidth = value; }, true, () => { this.strokeWidth = undefined; });
   }
 
   public getId(): string { return this.id; }
@@ -35,6 +37,7 @@ export abstract class Shape {
   public abstract captureGeometry(): GeometrySnapshot;
   public getParent(): Shape | undefined { return TreeStructure.getParent(this); }
   public isContainer(): boolean { return false; }
+  public canUngroup(): boolean { return false; }
   public getChildren(): readonly Shape[] { return Object.freeze([]); }
 
   /** Detached, frozen explicit attributes; omitted styles stay absent.
@@ -47,6 +50,11 @@ export abstract class Shape {
       if (value !== undefined) entries.push([name, value]);
     }
     return Object.freeze(Object.fromEntries(entries));
+  }
+
+  public captureAttributes(): AttributeSnapshot {
+    const restore = [...this.attributes.values()].map(binding => binding.capture());
+    return new AttributeSnapshot(() => { for (const apply of restore) apply(); });
   }
 
   public setAttribute(name: string, value: AttributeValue): void {
@@ -83,10 +91,17 @@ export abstract class Shape {
     name: string,
     read: () => number | undefined,
     write: (value: number) => void,
-    nonNegative = false
+    nonNegative = false,
+    clear?: () => void
   ): void {
     this.attributes.set(name, {
       read,
+      capture: () => {
+        const value = read();
+        if (value !== undefined) return () => write(value);
+        if (!clear) throw new DomainError(`cannot capture absent attribute: ${name}`);
+        return clear;
+      },
       write: value => {
         const parsed = NumericRules.parse(value, name);
         write(nonNegative ? NumericRules.nonNegative(parsed, name) : parsed);
@@ -97,10 +112,17 @@ export abstract class Shape {
   protected registerStringAttribute(
     name: string,
     read: () => string | undefined,
-    write: (value: string) => void
+    write: (value: string) => void,
+    clear?: () => void
   ): void {
     this.attributes.set(name, {
       read,
+      capture: () => {
+        const value = read();
+        if (value !== undefined) return () => write(value);
+        if (!clear) throw new DomainError(`cannot capture absent attribute: ${name}`);
+        return clear;
+      },
       write: value => {
         if (typeof value !== "string") throw new DomainError(`${name} must be a string`);
         write(value);

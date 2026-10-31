@@ -1,0 +1,21 @@
+# Phase 6: all editing commands, using a nested group so ungroup is allowed.
+init 800 600
+create g scene
+create rect r1 20 30 120 60 #4a90d9 in scene
+create text t1 35 65 "开始" in scene
+create g spare in scene
+group node t1 r1
+move node 20 10
+scale node 1.5
+set t1 text "处理数据"
+set node fill #f5a623
+front node
+back node
+addto spare t1
+undo
+ungroup node
+undo
+delete node
+undo
+tree
+show t1

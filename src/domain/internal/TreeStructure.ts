@@ -18,6 +18,10 @@ export class TreeStructure {
     return this.children.get(shape) ?? Object.freeze([]);
   }
 
+  public static isOwnedBy(shape: Shape, owner: object): boolean {
+    return this.owners.get(shape) === owner;
+  }
+
   public static isOwned(shape: Shape): boolean {
     return this.owners.has(shape);
   }
