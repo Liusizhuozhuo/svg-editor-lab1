@@ -2,6 +2,7 @@
 
 使用 TypeScript、面向对象和 Command 模式实现命令行 SVG 编辑器。
 需求来源：[实验任务书](phase_cli_1.md)。架构与开发记录：[doc/README.md](doc/README.md)。
+仓库地址：https://github.com/Liusizhuozhuo/svg-editor-lab1。
 
 ## 当前进度
 
