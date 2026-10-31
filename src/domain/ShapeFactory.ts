@@ -1,3 +1,4 @@
+import type { ShapeImportData } from "./ShapeImportData.js";
 import { DomainError } from "./DomainError.js";
 import { ShapeArguments } from "./ShapeArguments.js";
 import type { ShapeDefinition } from "./ShapeDefinition.js";
@@ -18,9 +19,19 @@ export class ShapeFactory {
   }
 
   public create(type: string, id: string, values: readonly (string | number)[]): Shape {
+    return this.resolve(type).create(id, new ShapeArguments(values));
+  }
+
+  public createFromSvg(type: string, id: string, data: ShapeImportData): Shape {
+    const shape = this.resolve(type).createFromSvg(id, data);
+    data.applyStyles(shape);
+    return shape;
+  }
+
+  private resolve(type: string): ShapeDefinition {
     const definition = this.definitions.get(type);
     if (!definition) throw new DomainError(`unknown shape type: ${type} (is the plugin loaded?)`);
-    return definition.create(id, new ShapeArguments(values));
+    return definition;
   }
 
   public getSyntax(): readonly string[] {

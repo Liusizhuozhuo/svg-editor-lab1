@@ -279,13 +279,13 @@ test('all added parsers reject missing/extra arguments and require a document', 
   }
 });
 
-test('help lists all 16 available commands and only file/canvas commands remain absent', () => {
+test('help lists editing and document commands', () => {
   const {cli}=fixture();
   const help=cli.executeLine('help');
   for(const command of ['delete','scale','set','group','ungroup','addto','front','back']) {
     assert.match(help,new RegExp(`^  ${command} `,'m'));
   }
-  assert.match(help,/File commands and canvas/);
+  for (const command of ['read','save','canvas']) assert.match(help,new RegExp(`^  ${command} `,'m'));
 });
 
 test('actual CLI executes new commands, keeps quoted content and continues after invalid ungroup', () => {

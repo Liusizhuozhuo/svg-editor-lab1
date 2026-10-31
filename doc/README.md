@@ -2,7 +2,7 @@
 
 ## 文档状态
 
-第 6 阶段修订。全部图形编辑命令及撤销重做已接入 CLI；read/save/canvas 与最终验收仍是后续计划。各阶段记录保留当时状态，以本节和最新阶段记录为当前实现范围。
+第 7 阶段修订。SVG 读写、read/save/canvas 与文档历史屏障已接入 CLI；全量验收和文档定稿留到第 8 阶段。各阶段记录保留当时状态，以本节和最新阶段记录为当前实现范围。
 需求依据：`../phase_cli_1.md`。当前范围为 CLI、六种内置图形和任务书列出的全部命令；不开发 Web 界面、box 或动态插件加载。
 
 ## 架构方案
@@ -60,7 +60,7 @@ presentation ..> domain
 - **Memento 与局部恢复**：第 4 阶段采用 GeometrySnapshot 精确恢复移动前后的几何值；CreateCommand 保存创建对象及插入位置，撤销/重做通过文档维护索引。保留对象身份，不替换整份文档。未来 set/delete/group 需分别保存属性是否存在、父级和顺序，不能直接套用几何快照。
 
 按名字分发仅保留两处：CommandRouter（命令名）和 ShapeFactory（图形类型名）。依任务书标为**待重构点**：后续改为可注入注册、减少修改中央清单的需求；注册表仍是名字分发，不能以此规避约束。
-属性白名单由各图形封装，不在命令中根据图形类型分支。第 5 阶段 tree/show 使用 ShapeVisitor 与 Shape.accept() 双分派；SVG 输出尚未实现。访问者通过具体方法处理类型，不再新增类型名字分派。
+属性白名单由各图形封装，不在命令中根据图形类型分支。第 5 阶段 tree/show 使用 ShapeVisitor 与 Shape.accept() 双分派；第 7 阶段 SVG 输出复用同一访问者协议。访问者通过具体方法处理类型，不再新增类型名字分派。
 
 ### 依赖方向规则
 
@@ -94,15 +94,15 @@ presentation ..> domain
 - init/read/save/修改画布后禁止撤销重做，下一次成功编辑解禁；查询 canvas 不改变历史。
 - 只支持六种内置类型；box 报未知类型。颜色省略不写属性；文本写为 XML 子文本。
 
-**初步建议，尚未成为已确认要求；相关功能实现前再明确：**
+**任务书未完全规定的语义及实现决策：**
 
 | 问题 | 初步建议 | 状态 |
 |---|---|---|
 | 文档操作后旧历史是否可再次访问 | 成功的历史屏障清空旧栈并设禁用标志，新编辑开启新历史段 | 第 4 阶段采用；任务书只明确禁用/解禁，清栈属于实现决策 |
 | 不同父级元素 group 的新组位置与顺序 | 最近公共祖先下的最早受影响分支位置，按原文档遍历顺序收编；同父级插入最早选中位置 | 第 6 阶段采用的实现决策，任务书未完整规定 |
-| 外部 transform 与未知 SVG 内容 | 首先界定支持子集；不支持的影响视觉语义的结构不得静默丢弃 | 待确认，背景示例不等于完整 SVG 支持要求 |
+| 外部 transform 与未知 SVG 内容 | 首先界定支持子集；不支持的影响视觉语义的结构不得静默丢弃 | 第 7 阶段采用明确支持子集，详见下方记录 |
 | set g fill | 设置组自身属性，不覆盖后代已有颜色；实际 SVG 继承由后续输出与渲染体现 | 第 2 阶段采用的实现决策，非任务书逐字要求 |
-| init 后首次 save path | 成功后记录该路径，供后续无参数 save 使用 | 建议方案 |
+| init 后首次 save path | 成功后记录该路径，供后续无参数 save 使用 | 第 7 阶段采用 |
 | 重复 ID、尺寸边界、空历史错误文案 | 第 2 阶段采用有限数值、非负尺寸和描边宽度；全局重复 ID 校验与历史错误文案仍待对应阶段处理 | 部分已落地 |
 | 元素统计 | 统计全部图形及 g，不含 svg 根；任务书 6.1 版本 A 应为 9，示例写 8 | 已识别示例不一致，需统一验收口径 |
 
@@ -136,18 +136,18 @@ presentation ..> domain
 
 ### 模块划分
 
-第 6 阶段新增八个编辑命令和对应 Parser、StructuralEditCommand，以及 domain 的 AttributeSnapshot/DocumentStructureSnapshot；SvgDocument 增加分组、解组与结构恢复。仍与现有模块划分一致，一类一文件，无新增外部依赖。infrastructure 仍为占位目录。
+第 6 阶段新增八个编辑命令和对应 Parser、StructuralEditCommand，以及 domain 的 AttributeSnapshot/DocumentStructureSnapshot；SvgDocument 增加分组、解组与结构恢复。第 7 阶段落实 infrastructure 的 SVG 读写及文件仓储，ports 增加 DocumentRepository/DocumentReadResult，领域工厂增加独立导入参数契约。新增 XML 解析依赖 @xmldom/xmldom。仍保持一类一文件。
 
 ### 依赖方向
 
-当前 main.ts → cli；cli → application/commands/domain/presentation；application → commands/domain/ports；commands → domain/ports；ports/presentation → domain；domain 仅模块内部依赖。终端 IO 仅在 CLI。命令名与类型名查找分别集中在 CommandRouter 与 ShapeFactory，均标记待重构；查询输出通过访问者，不含 switch(tag)。
+当前 main.ts → cli/application/infrastructure；infrastructure → ports/domain 与 XML 库及 Node 文件系统；cli → application/commands/domain/presentation；application → commands/domain/ports；commands → domain/ports；ports/presentation → domain；domain 仅模块内部依赖。终端 IO 仅在 CLI。命令名与类型名查找分别集中在 CommandRouter 与 ShapeFactory，均标记待重构；查询输出通过访问者，不含 switch(tag)。
 后续新增模块时检查 import，重点检查 domain 是否依赖 IO、commands 与 application 是否形成环，以及是否增加类型名分派点。
 
 ## 质量保证手段
 
 当前使用 TypeScript strict、noUncheckedIndexedAccess、exactOptionalPropertyTypes、noImplicitOverride 与 noEmitOnError。
 通过 npm run check 验证类型检查与编译，通过 npm run cli 验证启动入口。
-Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 113 项测试通过，包含全部编辑命令和真实 CLI 进程；尚未覆盖未来 SVG 文件读写与 canvas 命令。
+Node 内置测试入口在第 2 阶段改为先编译再测试，当前累计 141 项测试通过，覆盖编辑命令、真实 CLI、SVG 往返、缺失 ID、严格导入边界、文件失败原子性与 canvas 历史屏障。
 依赖版本由 package-lock.json 锁定，使用 npm ci 复现安装。
 
 后续验证随功能同步：
@@ -441,3 +441,31 @@ CreateCommand 接受已构造的 Shape；类型名解析、图形工厂和 CLI �
 - 更新第 5 阶段旧测试：delete 已从“未实现命令”变成合法命令，未知命令测试改用仍未实现的 read；其余断言继续保留。
 - npm run check 通过严格类型检查、编译及全部 113 项测试（原 89 项 + 新增 24 项）。examples/phase6.txt 提供完整编辑回放，不包含尚未实现的文件操作。
 - 分派点仍仅为 CommandRouter 和 ShapeFactory；命令不直接导入 TreeStructure，结构写入留在领域层。未增加依赖，未执行 git 暂存、提交、推送或打标签。
+
+## 第 7 阶段：SVG 读写与文档生命周期
+
+### 实现与职责
+
+- `DocumentRepository` 定义同步读写端口；`DocumentReadResult` 返回候选文档及只读警告。同步接口符合当前逐行 CLI 执行方式。
+- `SvgReader` 通过 @xmldom/xmldom 解析 XML，拒绝解析器自动修复的无效输入。先扫描全部显式 ID，再生成缺失 ID，完整构造成功后才交给应用层替换文档。
+- `ShapeImportData` 不依赖 XML 库，各 ShapeDefinition 自行声明属性和内容规则；CLI 创建与 SVG 导入共用 ShapeFactory 的唯一类型名分发入口。
+- `SvgWriter` 实现 ShapeVisitor，使用图形公开只读属性和有序子节点输出；`XmlEscaper` 处理文本、属性转义及 XML 1.0 字符合法性。文本中的回车通过字符引用保存，避免往返被 XML 换行标准化改变。
+- `SvgFileRepository` 使用 UTF-8 严格解码，保存前完整序列化，在目标目录创建唯一临时文件、写入关闭后 rename 替换；失败尽力清理本次临时文件，不先截断原文件。不自动创建父目录。
+- `CommandExecutor` 注入仓储端口，成功 read/save/resize 后建立历史屏障；main.ts 注入具体文件仓储。CLI Parser 只解析参数和格式化结果，应用层不依赖具体文件实现。
+
+### 本阶段确定的边界
+
+1. 六类图形、嵌套 g、几何属性、fill/stroke/stroke-width 和文本可往返；省略的样式保持省略，元素统计含 g 不含 svg 根。
+2. 根必须给定正数 width/height，可带 px；可选 viewBox 必须与画布一致，即 `0 0 width height`。其他坐标映射不在当前模型中，因此报错，不擅自丢弃。图形数值不接受单位，缺省为 0。
+3. transform、CSS、其他元素/属性、外部命名空间、DTD 和样式处理指令明确拒绝；支持 XML 声明、注释、CDATA、标准转义与字符引用。注释和源代码排版不往返。并非通用 SVG 编辑器。
+4. 缺 ID 按类型加正整数生成，先避开整份文件已有 ID；重复、空白或空 ID 拒绝。只有整个导入成功才输出补 ID 警告。
+5. save 成功后也记住路径，供无参数 save 使用；init 清除路径。read 可作为首个命令。修改 canvas 必须同时提供宽高，无参数只查询。
+6. 成功文档操作清空旧历史并禁止 undo/redo，下一次成功编辑启用新历史；失败和查询不改变历史。undo/redo 在屏障后的提示都遵循任务书的 `undo not allowed after io command`。
+
+### 验证与使用
+
+新增 `tests/persistence.test.mjs` 的 28 项测试：六类图形和中文特殊文本往返、命名空间、自动 ID 避让、非法输入拒绝、保存覆盖、失败状态保持、临时文件清理、画布历史及真实 CLI 路径含空格的读写流程。原有测试同步更新 read/save 不再属于未知命令的预期。
+
+`npm run check` 验证严格类型检查、编译和累计 141 项测试。提供 `examples/import-demo.svg` 演示自动补 ID；根 README 包含交互步骤。PlantUML 更新源码，本阶段未渲染类图，也未将浏览器视觉验收冒充为已完成。
+
+本阶段不提交 Git、不打 final 标签；下一阶段进行任务书全量验收、架构一致性检查与文档定稿。

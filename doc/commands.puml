@@ -72,4 +72,14 @@
  SetCommand o-- AttributeSnapshot
  StructuralEditCommand o-- DocumentStructureSnapshot
  SvgDocument ..> DocumentStructureSnapshot
+ interface DocumentRepository
+ class DocumentReadResult
+ class SvgFileRepository
+ class SvgReader
+ class SvgWriter
+ CommandExecutor o-- DocumentRepository
+ DocumentRepository <|.. SvgFileRepository
+ SvgFileRepository --> SvgReader
+ SvgFileRepository --> SvgWriter
+ SvgReader --> DocumentReadResult
 @enduml

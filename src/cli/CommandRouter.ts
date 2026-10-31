@@ -1,3 +1,6 @@
+import { ReadCommandParser } from "./parsers/ReadCommandParser.js";
+import { SaveCommandParser } from "./parsers/SaveCommandParser.js";
+import { CanvasCommandParser } from "./parsers/CanvasCommandParser.js";
 import { DeleteCommandParser } from "./parsers/DeleteCommandParser.js";
 import { ScaleCommandParser } from "./parsers/ScaleCommandParser.js";
 import { SetCommandParser } from "./parsers/SetCommandParser.js";
@@ -28,7 +31,7 @@ export class CommandRouter {
   private readonly factory = new ShapeFactory();
 
   constructor() {
-    const parsers: CommandParser[] = [new InitCommandParser(), new CreateCommandParser(this.factory),
+    const parsers: CommandParser[] = [new ReadCommandParser(), new SaveCommandParser(), new CanvasCommandParser(), new InitCommandParser(), new CreateCommandParser(this.factory),
       new DeleteCommandParser(), new ScaleCommandParser(), new SetCommandParser(), new UngroupCommandParser(), new AddToCommandParser(), new FrontCommandParser(), new BackCommandParser(), new GroupCommandParser(),
       new MoveCommandParser(), new UndoCommandParser(), new RedoCommandParser(),
       new TreeCommandParser(), new ShowCommandParser(), new HelpCommandParser(() => this.getHelp())];
@@ -48,6 +51,6 @@ export class CommandRouter {
     return ["Available commands:", ...[...this.parsers.values()].map(parser => `  ${parser.getSyntax()}`),
       "", "Shape parameters:", ...this.factory.getSyntax().map(syntax => `  ${syntax}`),
       "", 'Use double quotes for arguments containing spaces. Lines starting with # are comments.',
-      "EOF or Ctrl+C ends the session. File commands and canvas are not available yet."].join("\n");
+      "EOF or Ctrl+C ends the session."].join("\n");
   }
 }

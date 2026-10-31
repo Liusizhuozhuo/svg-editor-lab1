@@ -1,8 +1,13 @@
+import type { ShapeImportData } from "../ShapeImportData.js";
 import type { ShapeArguments } from "../ShapeArguments.js";
 import type { ShapeDefinition } from "../ShapeDefinition.js";
 import { Line } from "../shapes/Line.js";
 
 export class LineDefinition implements ShapeDefinition {
+  public createFromSvg(id: string, data: ShapeImportData): Line {
+    data.validate(["x1", "y1", "x2", "y2"], false, false);
+    return new Line(id, data.number("x1"), data.number("y1"), data.number("x2"), data.number("y2"));
+  }
   public getType(): string { return "line"; }
   public getSyntax(): string { return '<x1> <y1> <x2> <y2> [stroke]'; }
   public create(id: string, args: ShapeArguments): Line {

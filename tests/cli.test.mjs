@@ -189,7 +189,7 @@ test('unknown commands are case sensitive and have no state changes', () => {
   const {editor,cli} = fixture();
   cli.executeLine('init');
   const before = snapshot(editor);
-  for (const command of ['MOVE','__proto__','not-a-command','save','read']) {
+  for (const command of ['MOVE','__proto__','not-a-command','SAVE','READ']) {
     assert.throws(()=>cli.executeLine(command),/unknown command/);
     assert.deepEqual(snapshot(editor),before);
   }
